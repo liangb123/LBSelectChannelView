@@ -16,7 +16,7 @@
 #define HEADERID @"headerId"
 #define FOOTERID @"footerId"
 
-@interface LBEditMenuVC ()<UICollectionViewDelegate,UICollectionViewDataSource,UICollectionViewDelegateFlowLayout>
+@interface LBEditMenuVC ()<UICollectionViewDelegate,UICollectionViewDataSource,UICollectionViewDelegateFlowLayout,UIScrollViewDelegate>
 
 @property (nonatomic, strong) NSMutableArray *selectArray;
 @property (nonatomic, strong) NSMutableArray *otherArrM;
@@ -28,9 +28,23 @@
 @property (nonatomic, copy  ) NSString *editBtnStr;
 /** 记录刚进来时候 选择的index */
 @property (nonatomic, assign) NSInteger oldSelectIndex;
+/** scrollView */
+@property (nonatomic, strong) UIScrollView *scrollView;
+@property (nonatomic, assign) CGFloat lastContentOffset;
+@property (nonatomic, assign) BOOL firstTime;
 @end
 
 @implementation LBEditMenuVC
+
+- (UIScrollView *)scrollView {
+    if (!_scrollView) {
+        _scrollView = [[UIScrollView alloc]initWithFrame:self.view.bounds];
+        _scrollView.delegate = self;
+        _scrollView.alwaysBounceVertical = YES;
+        _scrollView.backgroundColor = [UIColor clearColor];
+    }
+    return _scrollView;
+}
 
 - (NSMutableArray *)selectArray {
     if (!_selectArray) {
@@ -83,14 +97,16 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    self.firstTime = YES;
+    [self.view addSubview:self.scrollView];
         //初始化UI
-        [self initColumnMenuUI];
+    [self initColumnMenuUI];
 }
 
 #pragma mark - 初始化UI
 - (void)initColumnMenuUI {
     
-    self.view.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.0f];
+    self.view.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.2f];
     //视图布局对象
     UICollectionViewFlowLayout *layout = [[UICollectionViewFlowLayout alloc] init];
     //UICollectionView
@@ -98,12 +114,14 @@
     self.collectionView = collectionView;
     collectionView.layer.masksToBounds = YES;
     collectionView.layer.cornerRadius = 5.0f;
+    collectionView.bounces = NO;
     collectionView.delegate = self;
     collectionView.dataSource = self;
     collectionView.backgroundColor = [UIColor whiteColor];
     collectionView.showsHorizontalScrollIndicator = NO;
     collectionView.showsVerticalScrollIndicator = NO;
-    [self.view addSubview:self.collectionView];
+    [self.scrollView addSubview:collectionView];
+    
     
     //注册cell
     [self.collectionView registerClass:[LBEditMenuCollectionCell class] forCellWithReuseIdentifier:CELLID];
@@ -285,8 +303,6 @@
     } else {
         self.editBtnStr = @"编辑";
         [self.headerView.editBtn setTitle:@"编辑" forState:UIControlStateNormal];
-        
-        //        [self.collectionView removeGestureRecognizer:self.longPress];
         
         for (int i = 0; i < self.selectArray.count; i++) {
             LBEditMenuModel *model = self.selectArray[i];
@@ -511,8 +527,47 @@
             [dataArr addObject:model.title];
         }
     }
-//    NSDictionary *param = @{@"data":dataArr.count > 0?dataArr:@[]};
     complete?complete():nil;
+}
+
+- (void)scrollViewDidScroll:(UIScrollView *)scrollView{
+    if (scrollView == self.scrollView) {
+        if (!self.firstTime) {
+            CGPoint offset = scrollView.contentOffset;
+            if (- offset.y <= 0) {
+                offset.y = 0;
+            }
+            scrollView.contentOffset = offset;
+            
+            
+            if (offset.y < self.lastContentOffset){//向上
+                if ( -offset.y >= 100) {
+                    [UIView animateWithDuration:0.3 animations:^{
+                        self.scrollView.frame = CGRectMake(0, ScreenHeight, ScreenWidth, ScreenHeight);
+                    } completion:^(BOOL finished) {
+                        if (finished) {
+                            [self dismissViewControllerAnimated:NO completion:nil];
+                        }
+                    }];
+                }
+            }
+        }else{
+            self.firstTime = NO;
+        }
+    }
+}
+
+- (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView {
+    if (scrollView == self.scrollView) {
+        self.lastContentOffset = scrollView.contentOffset.y;
+    }
+}
+
+- (void)viewWillAppear:(BOOL)animated{
+    [super viewWillAppear:animated];
+    if (@available(iOS 11.0, *)) {
+        self.scrollView.contentInset = UIEdgeInsetsMake(-20, 0, 0, 0);
+    }
 }
 
 @end
